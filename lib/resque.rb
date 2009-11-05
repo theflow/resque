@@ -42,6 +42,10 @@ module Resque
     self.redis
   end
 
+  def synchronous_fallback=(value)
+    @synchronous_fallback = value
+  end
+
   def to_s
     "Resque Client connected to #{redis.server}"
   end
@@ -127,9 +131,23 @@ module Resque
   #
   # This method is considered part of the `stable` API.
   def enqueue(klass, *args)
+    if @synchronous_fallback
+      enqueue_with_fallback(klass, *args)
+    else
+      enqueue_without_fallback(klass, *args)
+    end
+  end
+
+  def enqueue_without_fallback(klass, *args)
     queue = klass.instance_variable_get(:@queue)
     queue ||= klass.queue if klass.respond_to?(:queue)
     Job.create(queue, klass, *args)
+  end
+
+  def enqueue_with_fallback(klass, *args)
+    enqueue_without_fallback(klass, *args)
+  rescue Errno::ECONNREFUSED => e
+    Job.new(:synchronous, { 'class' => klass.to_s, 'args' => args }).perform
   end
 
   # This method will return a `Resque::Job` object or a non-true value
