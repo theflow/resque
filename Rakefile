@@ -1,6 +1,6 @@
-eval File.read('tasks/redis.rake')
+load 'tasks/redis.rake'
 
-$LOAD_PATH.unshift File.dirname(__FILE__) + '/lib'
+$LOAD_PATH.unshift 'lib'
 require 'resque/tasks'
 
 task :default => :test
@@ -27,7 +27,6 @@ task :gem => [ :test, :gemspec, :build ]
 
 begin
   require 'jeweler'
-  $LOAD_PATH.unshift 'lib'
   require 'resque/version'
 
   Jeweler::Tasks.new do |gemspec|
@@ -37,7 +36,11 @@ begin
     gemspec.email = "chris@ozmm.org"
     gemspec.homepage = "http://github.com/defunkt/resque"
     gemspec.authors = ["Chris Wanstrath"]
-    gemspec.version = Resque::Version 
+    gemspec.version = Resque::Version
+
+    gemspec.add_dependency "redis"
+    gemspec.add_dependency "redis-namespace"
+    gemspec.add_development_dependency "jeweler"
   end
 rescue LoadError
   puts "Jeweler not available. Install it with: "

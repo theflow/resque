@@ -17,7 +17,7 @@ comprised of three parts:
 3. A Sinatra app for monitoring queues, jobs, and workers.
 
 Resque workers can be distributed between multiple machines,
-support priorities, are resililent to memory bloat / "leaks," are
+support priorities, are resilient to memory bloat / "leaks," are
 optimized for REE (but work on MRI and JRuby), tell you what they're
 doing, and expect failure.
 
@@ -151,12 +151,12 @@ do this:
 This is why our above example (and all the examples in `examples/`)
 uses object IDs instead of passing around the objects.
 
-While this is less convenient than just sticking a marshalled object
+While this is less convenient than just sticking a marshaled object
 in the database, it gives you a slight advantage: your jobs will be
 run against the most recent version of an object because they need to
 pull from the DB or cache.
 
-If your jobs were run against marshalled objects, they could
+If your jobs were run against marshaled objects, they could
 potentially be operating on a stale record with out-of-date information.
 
 
@@ -184,7 +184,7 @@ exceptions you would not normally throw in order to assist debugging.
 Workers
 -------
 
-Resque workers are rake tasks the run forever. They basically do this:
+Resque workers are rake tasks that run forever. They basically do this:
 
     start
     loop do
@@ -225,7 +225,7 @@ We don't want the `git_timeout` as high as 10 minutes in our web app,
 but in the Resque workers it's fine.
 
 
-## Logging
+### Logging
 
 Workers support basic logging to STDOUT. If you start them with the
 `VERBOSE` env variable set, they will print basic debugging
@@ -278,6 +278,21 @@ queues created on the fly, you can use a splat:
     $ QUEUE=* rake resque:work
 
 Queues will be processed in alphabetical order.
+
+
+### Running Multiple Workers
+
+At GitHub we use god to start and stop multiple workers. A sample god
+configuration file is included under `examples/god`. We recommend this
+method.
+
+If you'd like to run multiple workers in development mode, you can do
+so using the `resque:workers` rake task:
+
+    $ COUNT=5 QUEUE=* rake resque:workers
+
+This will spawn five Resque workers, each in its own thread. Hitting
+ctrl-c should be sufficient to stop them all.
 
 
 ### Forking
@@ -354,9 +369,16 @@ Resque workers respond to a few different signals:
 If you want to gracefully shutdown a Resque worker, use `QUIT`.
 
 If you want to kill a stale or stuck child, use `USR1`. Processing
-will continue as normal.
+will continue as normal unless the child was not found. In that case
+Resque assumes the parent process is in a bad state and shuts down.
 
 If you want to kill a stale or stuck child and shutdown, use `TERM`
+
+### Mysql::Error: MySQL server has gone away
+
+If your workers remain idle for too long they may lose their MySQL
+connection. If that happens we recommend using [this
+Gist](http://gist.github.com/238999).
 
 
 The Front End
@@ -367,7 +389,7 @@ your queue.
 
 ![The Front End](http://img.skitch.com/20091104-tqh5pgkwgbskjbk7qbtmpesnyw.jpg)
 
-## Standalone
+### Standalone
 
 If you've installed Resque as a gem running the front end standalone is easy:
 
@@ -419,7 +441,7 @@ over the other?
 * Resque can only place JSONable Ruby objects on a queue as arguments
 * DelayedJob can place _any_ Ruby object on its queue as arguments
 * Resque includes a Sinatra app for monitoring what's going on
-* DelayedJob can be queryed from within your Rails app if you want to
+* DelayedJob can be queried from within your Rails app if you want to
   add an interface
 
 If you're doing Rails development, you already have a database and
@@ -643,7 +665,7 @@ correctly (though we make an effort to tell you if we feel this is the
 case). The tests attempt to start an isolated instance of Redis to
 run against.
 
-Also make sure you've installed all the depenedencies correctly. For
+Also make sure you've installed all the dependencies correctly. For
 example, try loading the `redis-namespace` gem after you've installed
 it:
 
@@ -665,10 +687,10 @@ Contributing
 
 Once you've made your great commits:
 
-1. [Fork](fk) Resque
+1. [Fork][1] Resque
 2. Create a topic branch - `git checkout -b my_branch`
 3. Push to your branch - `git push origin my_branch`
-4. Create an [Issue](is) with a link to your branch
+4. Create an [Issue][2] with a link to your branch
 5. That's it!
 
 
@@ -690,6 +712,7 @@ Meta
 * Docs: <http://defunkt.github.com/resque/>
 * Bugs: <http://github.com/defunkt/resque/issues>
 * List: <resque@librelist.com>
+* Chat: <irc://irc.freenode.net/resque>
 * Gems: <http://gemcutter.org/gems/resque>
 
 
@@ -699,5 +722,5 @@ Author
 Chris Wanstrath :: chris@ozmm.org :: @defunkt
 
 [0]: http://github.com/blog/542-introducing-resque
-[fk]: http://help.github.com/forking/
-[is]: http://github.com/defunkt/resque/issues
+[1]: http://help.github.com/forking/
+[2]: http://github.com/defunkt/resque/issues

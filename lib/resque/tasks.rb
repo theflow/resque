@@ -2,9 +2,11 @@
 # will give you the resque tasks
 
 namespace :resque do
-  desc "Start a Resque Ranger"
-  task :work do
-    Rake::Task['resque:setup'].invoke rescue nil
+  task :setup
+
+  desc "Start a Resque worker"
+  task :work => :setup do
+    require 'resque'
 
     worker = nil
     queues = (ENV['QUEUES'] || ENV['QUEUE']).to_s.split(',')
@@ -20,5 +22,18 @@ namespace :resque do
     puts "*** Starting worker #{worker}"
 
     worker.work(ENV['INTERVAL'] || 5) # interval, will block
+  end
+
+  desc "Start multiple Resque workers"
+  task :workers do
+    threads = []
+
+    ENV['COUNT'].to_i.times do
+      threads << Thread.new do
+        system "rake resque:work"
+      end
+    end
+
+    threads.each { |thread| thread.join }
   end
 end
