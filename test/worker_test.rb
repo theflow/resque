@@ -226,4 +226,46 @@ context "Resque::Worker" do
       assert_equal 1, Resque.workers.size
     end
   end
+
+  test "writes a pid file" do
+    pid_file = File.dirname(__FILE__) + '/test_worker.pid'
+    assert !File.exists?(pid_file)
+
+    @worker.pid_file = pid_file
+    @worker.startup
+
+    assert File.exists?(pid_file)
+
+    @worker.unlink_pid_safe(pid_file)
+
+    assert !File.exists?(pid_file)
+  end
+
+  test "does not write a pid file when non configured" do
+    @worker.startup
+    assert_nil @worker.pid
+    assert_nil @worker.pid_file
+  end
+
+  test "does not start when pid file contains running process" do
+    pid_file = File.dirname(__FILE__) + '/test_worker.pid'
+    assert !File.exists?(pid_file)
+
+    @worker.pid_file = pid_file
+    @worker.startup
+
+    worker_pid = File.read(pid_file)
+
+    worker2 = Resque::Worker.new(:jobs)
+    worker2.pid_file = pid_file
+
+    assert_raises ArgumentError do
+      worker2.startup
+    end
+
+    # pid file shouldn't change
+    assert_equal worker_pid, File.read(pid_file)
+
+    @worker.unlink_pid_safe(pid_file)
+  end
 end
