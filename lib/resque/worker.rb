@@ -16,10 +16,6 @@ module Resque
     # Whether the worker should log lots of info to STDOUT
     attr_accessor  :very_verbose
 
-    # Whether and where we should write a pid file
-    attr_accessor :pid_file
-    attr_accessor :pid
-
     # Boolean indicating whether this worker can or can not fork.
     # Automatically set if a fork(2) fails.
     attr_accessor :cant_fork
@@ -109,7 +105,6 @@ module Resque
     # has completed processing. Useful for testing.
     def work(interval = 5, &block)
       $0 = "resque: Starting"
-      Resque::Launcher.daemonize! if pid_file
       startup
 
       loop do
@@ -143,7 +138,6 @@ module Resque
 
     ensure
       unregister_worker
-      unlink_pid_safe(pid) if pid
     end
 
     # Processes a single job. If none is given, it will try to produce
@@ -208,7 +202,6 @@ module Resque
       register_signal_handlers
       prune_dead_workers
       register_worker
-      self.pid = pid_file if pid_file
     end
 
     # Enables GC Optimizations if you're running REE.
@@ -233,56 +226,6 @@ module Resque
         trap('USR1') { kill_child }
       end
       log! "Registered signals"
-    end
-
-    alias_method :set_pid, :pid=
-    undef_method :pid=
-
-    # sets the path for the PID file of the master process
-    def pid=(path)
-      if path
-        if x = valid_pid?(path)
-          return path if pid && path == pid && x == $$
-          raise ArgumentError, "Already running on PID:#{x} " \
-                               "(or pid=#{path} is stale)"
-        end
-      end
-      unlink_pid_safe(pid) if pid
-
-      if path
-        fp = begin
-          tmp = "#{File.dirname(path)}/#{rand}.#$$"
-          File.open(tmp, File::RDWR|File::CREAT|File::EXCL, 0644)
-        rescue Errno::EEXIST
-          retry
-        end
-        fp.syswrite("#$$\n")
-        File.rename(fp.path, path)
-        fp.close
-      end
-      self.set_pid(path)
-    end
-
-    # unlinks a PID file at given +path+ if it contains the current PID
-    # still potentially racy without locking the directory (which is
-    # non-portable and may interact badly with other programs), but the
-    # window for hitting the race condition is small
-    def unlink_pid_safe(path)
-      (File.read(path).to_i == $$ and File.unlink(path)) rescue nil
-    end
-
-    # returns a PID if a given path contains a non-stale PID file,
-    # nil otherwise.
-    def valid_pid?(path)
-      wpid = File.read(path).to_i
-      wpid <= 0 and return nil
-      begin
-        Process.kill(0, wpid)
-        return wpid
-      rescue Errno::ESRCH
-        # don't unlink stale pid files, racy without non-portable locking...
-      end
-      rescue Errno::ENOENT
     end
 
     # Schedule this worker for shutdown. Will finish processing the

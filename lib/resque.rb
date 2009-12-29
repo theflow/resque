@@ -14,7 +14,6 @@ require 'resque/failure/base'
 require 'resque/helpers'
 require 'resque/stat'
 require 'resque/job'
-require 'resque/launcher'
 require 'resque/worker'
 
 module Resque
