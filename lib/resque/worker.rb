@@ -119,6 +119,7 @@ module Resque
           log "got: #{job.inspect}"
 
           if @child = fork
+            rand # Reseeding
             procline = "resque: Forked #{@child} at #{Time.now.to_i}"
             $0 = procline
             log! procline
@@ -302,7 +303,7 @@ module Resque
     def kill_child
       if @child
         log! "Killing child at #{@child}"
-        if system("ps -ho pid,state -p #{@child}")
+        if system("ps -o pid,state -p #{@child}")
           Process.kill("KILL", @child) rescue nil
         else
           log! "Child #{@child} not found, restarting."

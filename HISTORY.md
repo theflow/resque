@@ -1,3 +1,20 @@
+## 1.3.0 (2010-??-??)
+
+* Use Vegas for resque-web
+* Web Bugfix: Show proper date/time value for failed_at on Failures
+* Add Resque::Server.tabs array (so plugins can add their own tabs)
+
+## 1.2.4 (2009-12-15)
+
+* Web Bugfix: fix key links on stat page
+
+## 1.2.3 (2009-12-15)
+
+* Bugfix: Fixed `rand` seeding in child processes.
+* Bugfix: Better JSON encoding/decoding without Yajl.
+* Bugfix: Avoid `ps` flag error on Linux
+* Add `PREFIX` observance to `rake` install tasks.
+
 ## 1.2.2 (2009-12-08)
 
 * Bugfix: Job equality was not properly implemented.
