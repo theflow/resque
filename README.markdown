@@ -365,6 +365,8 @@ Resque workers respond to a few different signals:
 * `QUIT` - Wait for child to finish processing then exit
 * `TERM` / `INT` - Immediately kill child then exit
 * `USR1` - Immediately kill child but don't exit
+* `USR2` - Don't start to process any new jobs
+* `CONT` - Start to process new jobs again after a USR2
 
 If you want to gracefully shutdown a Resque worker, use `QUIT`.
 
@@ -373,6 +375,10 @@ will continue as normal unless the child was not found. In that case
 Resque assumes the parent process is in a bad state and shuts down.
 
 If you want to kill a stale or stuck child and shutdown, use `TERM`
+
+If you want to stop processing jobs, but want to leave the worker running
+(for example, to temporarily alleviate load), use `USR2` to stop processing,
+then `CONT` to start it again.
 
 ### Mysql::Error: MySQL server has gone away
 
@@ -570,7 +576,7 @@ Now start your application:
 
 That's it! You can now create Resque jobs from within your app.
 
-To start a worker, add this to your Rakefile in RAILS_ROOT:
+To start a worker, add this to your Rakefile in `RAILS_ROOT`:
 
     require 'resque/tasks'
 
@@ -607,9 +613,9 @@ Resque has a `redis` setter which can be given a string or a Redis
 object. This means if you're already using Redis in your app, Resque
 can re-use the existing connection.
 
-String: `Resque.redis = 'localhost:6379'
+String: `Resque.redis = 'localhost:6379'`
 
-Redis: `Redus.redis = $redis`
+Redis: `Resque.redis = $redis`
 
 For our rails app we have a `config/initializers/resque.rb` file where
 we load `config/resque.yml` by hand and set the Redis information
@@ -634,9 +640,28 @@ And our initializer:
 Easy peasy! Why not just use `RAILS_ROOT` and `RAILS_ENV`? Because
 this way we can tell our Sinatra app about the config file:
 
-   $ RAILS_ENV=production resque-web rails_root/config/initializers/resque.rb
+    $ RAILS_ENV=production resque-web rails_root/config/initializers/resque.rb
 
 Now everyone is on the same page.
+
+
+Namespaces
+----------
+
+If you're running multiple, separate instances of Resque you may want
+to namespace the keyspaces so they do not overlap. This is not unlike
+the approach taken by many memcached clients.
+
+This feature is provided by the [redis-namespace][rs] library, which
+Resque uses by default to separate the keys it manages from other keys
+in your Redis server.
+
+Simply use the `Resque.redis.namespace` accessor:
+
+    Resque.redis.namespace = "resque:GitHub"
+
+We recommend sticking this in your initializer somewhere after Redis
+is configured.
 
 
 Demo
@@ -734,3 +759,4 @@ Chris Wanstrath :: chris@ozmm.org :: @defunkt
 [1]: http://help.github.com/forking/
 [2]: http://github.com/defunkt/resque/issues
 [sv]: http://semver.org/
+[rs]: http://github.com/defunkt/redis-namespace

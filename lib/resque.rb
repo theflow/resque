@@ -6,6 +6,8 @@ rescue LoadError
   require 'json'
 end
 
+require 'resque/version'
+
 require 'resque/errors'
 
 require 'resque/failure'
@@ -20,12 +22,16 @@ module Resque
   include Helpers
   extend self
 
-  # Accepts a 'hostname:port' string or a Redis server.
+  # Accepts:
+  #   1. A 'hostname:port' string
+  #   2. A 'hostname:port:db' string (to select the Redis db)
+  #   3. An instance of `Redis`
   def redis=(server)
     case server
     when String
-      host, port = server.split(':')
-      redis = Redis.new(:host => host, :port => port, :thread_safe => true)
+      host, port, db = server.split(':')
+      redis = Redis.new(:host => host, :port => port,
+        :thread_safe => true, :db => db)
       @redis = Redis::Namespace.new(:resque, :redis => redis)
     when Redis
       @redis = Redis::Namespace.new(:resque, :redis => server)
@@ -131,7 +137,7 @@ module Resque
   # If either of those conditions are met, it will use the value obtained
   # from performing one of the above operations to determine the queue.
   #
-  # If no queue can be inferred this method will return a non-true value.
+  # If no queue can be inferred this method will raise a `Resque::NoQueueError`
   #
   # This method is considered part of the `stable` API.
   def enqueue(klass, *args)
@@ -143,15 +149,50 @@ module Resque
   end
 
   def enqueue_without_fallback(klass, *args)
-    queue = klass.instance_variable_get(:@queue)
-    queue ||= klass.queue if klass.respond_to?(:queue)
-    Job.create(queue, klass, *args)
+    Job.create(queue_from_class(klass), klass, *args)
   end
-
   def enqueue_with_fallback(klass, *args)
     enqueue_without_fallback(klass, *args)
   rescue Errno::ECONNREFUSED => e
     Job.new(:synchronous, { 'class' => klass.to_s, 'args' => args }).perform
+  end
+
+  # This method can be used to conveniently remove a job from a queue.
+  # It assumes the class you're passing it is a real Ruby class (not
+  # a string or reference) which either:
+  #
+  #   a) has a @queue ivar set
+  #   b) responds to `queue`
+  #
+  # If either of those conditions are met, it will use the value obtained
+  # from performing one of the above operations to determine the queue.
+  #
+  # If no queue can be inferred this method will raise a `Resque::NoQueueError`
+  #
+  # If no args are given, this method will dequeue *all* jobs matching
+  # the provided class. See `Resque::Job.destroy` for more
+  # information.
+  #
+  # Returns the number of jobs destroyed.
+  #
+  # Example:
+  #
+  #   # Removes all jobs of class `UpdateNetworkGraph`
+  #   Resque.dequeue(GitHub::Jobs::UpdateNetworkGraph)
+  #
+  #   # Removes all jobs of class `UpdateNetworkGraph` with matching args.
+  #   Resque.dequeue(GitHub::Jobs::UpdateNetworkGraph, 'repo:135325')
+  #
+  # This method is considered part of the `stable` API.
+  def dequeue(klass, *args)
+    Job.destroy(queue_from_class(klass), klass, *args)
+  end
+
+  # Given a class, try to extrapolate an appropriate queue based on a
+  # class instance variable or `queue` method.
+  def queue_from_class(klass)
+    klass.instance_variable_get(:@queue) ||
+      (klass.respond_to?(:queue) and klass.queue)
   end
 
   # This method will return a `Resque::Job` object or a non-true value
@@ -178,6 +219,12 @@ module Resque
     Worker.working
   end
 
+  # A shortcut to unregister_worker
+  # useful for command line tool
+  def remove_worker(worker_id)
+    worker = Resque::Worker.find(worker_id)
+    worker.unregister_worker
+  end
 
   #
   # stats
